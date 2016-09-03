@@ -4,16 +4,27 @@
 #include <cstdlib>
 #include <cstdio>
 #include <stdio.h>
+#include <queue>
 
 #define max 10000
 using namespace std;
 
 struct node // bid node structure
 {
+	int bidno;
 	int cid; //company
 	double price;  
 	int norc;  // no. of regions in one bid
 	int *region;
+	float weight;
+};
+
+struct CompareNode : public std::binary_function<node, node, bool>                                                                                     
+{
+  bool operator()(const node lhs, const node rhs) const
+  {
+     return lhs.weight < rhs.weight;
+  }
 };
 
 float tim; // time
@@ -21,10 +32,28 @@ int nor; // number of regions
 int nob; // number of bids
 int noc; // number of companies
 struct node *tob; // total no. of bids
+priority_queue<node,vector<node>, CompareNode > weights;
 
 bool *com,*reg; //keeps record of which companies and regions can be selected in the remaining unprocessed bids
 bool *bid; // final bids
 
+double average_price;
+double sum_price=0;
+float average_regions;
+int sum_regions=0;
+
+void giveWeights(){
+	for(int i=0; i<nob; i++){
+		sum_price+=tob[i].price;
+		sum_regions+=tob[i].norc;
+	}
+	average_price=sum_price/nob;
+	average_regions=sum_regions/nob;
+	for(int i=0; i<nob; i++){
+		tob[i].weight=tob[i].price/tob[i].norc*average_regions/average_price;
+		weights.push(tob[i]);
+	}
+}
 
 //function to take input - read from console by redirection
 void readFile(char* inputfile)
@@ -58,6 +87,7 @@ void readFile(char* inputfile)
 		}
 		
 		ch1[j]='\0';
+		tob[i].bidno=i;
 		tob[i].cid=atoi(ch1);
 	
 		ch1[0]='\0';j=0;t++;
@@ -98,45 +128,60 @@ void readFile(char* inputfile)
 	fclose (fid);
 }
 
-void fill(int);
-bool checkReg(int);
+void fill(node);
+bool checkReg(node);
 void getRandom() //modify this function to produce the best output(following the conditions mentioned in the assignment)
 {
-	int num1,i;
-	num1=rand()%nob;
-	fill(num1);
-	for(i=(num1+1)%nob;i!=num1;i=(i+1)%nob)
-	{
-		if(com[tob[i].cid] || checkReg(i))
+	//int num1,i;
+	//num1=rand()%nob;
+	//cout<<num1<<endl;
+	//node temp=weights.top();
+
+	// fill(num1);
+	// for(i=(num1+1)%nob;i!=num1;i=(i+1)%nob)
+	// {
+	// 	if(com[tob[i].cid] || checkReg(i))
+	// 		continue;
+	// 	fill(i);
+	// }
+	int c=0;
+	while ( !weights.empty() )
+    {
+        node n = weights.top();
+        weights.pop();
+  		if(com[n.cid] || checkReg(n))
 			continue;
-		fill(i);
-	}
-	for(i=0;i<nob;i++)
+		fill(n);
+    }
+
+	double count=0;
+	for(int i=0;i<nob;i++)
 	{
 		if(bid[i]) {
 			cout<<i<<" ";
+			count+=tob[i].price;
 		}
 	}
-	cout<<"#"<<endl;
+	cout<<"# "<<count<<endl;
 }
 
 //helper function of getRandom function
-void fill(int bidno)
+void fill(node mybid)
 {
-	com[tob[bidno].cid]=true;
-	bid[bidno]=true;
-	for(int i=0;i<tob[bidno].norc;i++)
+	com[mybid.cid]=true;
+	bid[mybid.bidno]=true;
+	for(int i=0;i<mybid.norc;i++)
 	{
-		reg[tob[bidno].region[i]]=true;
+		reg[mybid.region[i]]=true;
 	}
 }	
 
 //helper function of getRandom function
-bool checkReg(int bidno)
+bool checkReg(node mybid)
 {
-	for(int i=0;i<tob[bidno].norc;i++)
+	for(int i=0;i<mybid.norc;i++)
 	{
-		if(reg[tob[bidno].region[i]]==true)
+		if(reg[mybid.region[i]]==true)
 			return true;
 	}
 	return false;
@@ -145,6 +190,7 @@ bool checkReg(int bidno)
 int main(int argc, char* argv[])
 {
 	readFile(argv[1]);
+	giveWeights();
 	getRandom();
 	return 0;
 }
