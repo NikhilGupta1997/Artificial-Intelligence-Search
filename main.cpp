@@ -55,7 +55,7 @@ int noOfSteps;
 
 /*Probabilities multiplied by 100*/
 int rp; //restart probability: 1/b
-int wp = 15; //random walk probability: 0.15
+int wp = 7; //random walk probability: 0.15
 int np; //novelty probability(choosing highest when its age is not larger: 0.5-(age(b2)/age(b1) - 1)/(score(b1)/score(b2))
 
 time_t t,start,check;
@@ -63,7 +63,7 @@ float tim; // time
 int nor; // number of regions
 int nob; // number of bids
 int noc; // number of companies
-struct node *tob; // total no. of bids
+struct node *tob, *stob; // total no. of bids // sorted list of bids
 struct region *reg;
 struct company *comp;
 int *age; //age of all bids
@@ -117,6 +117,7 @@ void readFile(char* inputfile){
 	tim -= 3;
 
 	tob = new node[nob];
+	stob = new node[nob];
 	age = new int[nob];
 	comp = new company[noc];
 	reg = new region[nor];
@@ -168,20 +169,22 @@ void readFile(char* inputfile){
 			tob[i].region[qq]=atoi(ch1);
 		}
 		tob[i].used = false;
+		stob[i] = tob[i];
 	}
 	fclose (fid);
 }
 
-void getStartState();
-void getStartState1();
-void getStartState2();
-void getStartState3();
+void getStartState(); // 0.65 - 0.96
+void getStartState1(); // 0.95 - 1.36
+void getStartState2(); // 1.01 - 1.29
+void getStartState3(); // 1.11 - 1.38
 void fill(int);
 bool checkReg(int);
+
 void randomStart() //Whenever there is a random restart
 {
 	int i;
-	int p,b1,b2;
+	int p,b1,b2, b1_map, b2_map;
 	do {
 		cout<<"Random Restart"<<endl;
 		time(&t);
@@ -217,41 +220,42 @@ void randomStart() //Whenever there is a random restart
 			time(&check);
 			if(check-start>=tim)
 			return;
-			srand(time(0));
 			p = rand()%100;
 			if(p<wp){
-				srand(time(0));
 				do{
+					cout<<"Random Walk"<<endl;
 					b1=rand()%nob;
 				}while(tob[b1].used);
 				fill(b1);
 			} 
 			else {
 				b1 = 0;
-				while(tob[b1].used){
+				b1_map = stob[b1].bid_id;
+				while(tob[b1_map].used){
 					b1++;
+					b1_map = stob[b1].bid_id;
 				}
 				b2 = b1+1;
-				while(tob[b2].used){
+				b2_map = stob[b2].bid_id;
+				while(tob[b2_map].used){
 					b2++;
+					b2_map = stob[b2].bid_id;
 				}
 				if(age[b1]>age[b2]){
-					fill(b1);
+					fill(b1_map);
 				} 
 				else{
-					srand(time(0));
 					p = rand()%100;	
-					temp = 0.5 - (age[b2]*1.0/age[b1] - 1)*tob[b2].score/tob[b1].score;
+					temp = 0.5 - (age[b2]*1.0/age[b1] - 1)*tob[b2_map].score/tob[b1_map].score;
 					np = temp*100;
 					if(p<np){
-						fill(b1);
+						fill(b1_map);
 					} 
 					else{
-						fill(b2);
+						fill(b2_map);
 					}
 				}
 			}
-			srand(time(0));
 			p = rand()%100;
 		} while(p>=rp);
 	} while(true);
@@ -264,16 +268,12 @@ void getStartState(){
 		region temp = region_size.top();
 		region_size.pop();
 		if(!temp.used){
-			srand(std::time(0)); 
 			rand1 = rand()%temp.bid_nos.size();
 			num1 = temp.bid_nos[rand1];
-			srand(std::time(0)); 
 			rand2 = rand()%temp.bid_nos.size();
 			num2 = temp.bid_nos[rand2];
-			srand(std::time(0)); 
 			rand3 = rand()%temp.bid_nos.size();
 			num3 = temp.bid_nos[rand3];
-			srand(std::time(0)); 
 			rand_no = rand()%3;
 			if(rand_no == 0){
 				if(!checkReg(num1) && !comp[temp.bid_nos[rand1]].used)
@@ -294,7 +294,6 @@ void getStartState(){
 // Helper function to get new start state
 void getStartState1(){
 	int num1,i;
-	srand(time(0));
 	num1=rand()%nob;
 	fill(num1);
 	for(i=(num1+1)%nob;i!=num1;i=(i+1)%nob){
@@ -306,7 +305,6 @@ void getStartState1(){
 
 // Helper function to get new start state
 void getStartState2(){
-	srand(time(0));
 	int num = rand()%noc;
 	int max_id=0;
 	double max_score=0.0;
@@ -318,7 +316,6 @@ void getStartState2(){
 				max_score = tob[comp[num].bid_nos[j]].score;
 			}
 		}
-		srand(time(0));
 		int prob = rand()%100;
 		if(prob>=0){
 			if(!checkReg(max_id)){
@@ -326,11 +323,8 @@ void getStartState2(){
 				continue;
 			}
 		}
-		srand(time(0));
 		int random_bid1 = rand()%no_of_bids;
-		srand(time(0));
 		int random_bid2 = rand()%no_of_bids;
-		srand(time(0));
 		int random_bid3 = rand()%no_of_bids;
 		int bid1 = comp[num].bid_nos[random_bid1];
 		int bid2 = comp[num].bid_nos[random_bid2];
@@ -396,9 +390,7 @@ void getStartState3(){
 	for(int j=0; j<nob; j++){
 		int co = tob[j].cid;
 		company_scores[co].push(tob[j]);
-		cout<<"Pushing"<<endl;
 	}
-	srand(time(0));
 	int num = rand()%noc;
 	int count[noc];
 	for(int i=0; i<noc; i++){
@@ -407,16 +399,13 @@ void getStartState3(){
 	while(not_zero(count, noc)){
 		count[num]=0;
 		while(!company_scores[num].empty()){
-			cout<<"inside "<<num<<endl;
 			node temp = company_scores[num].top();
 			company_scores[num].pop();
 			int id = temp.bid_id;
-			cout<<id<<endl;
 			int p = rand()%1000;
-			if(p>900)
+			if(p>800)
 				continue;
 			if(!checkReg(id)){
-				cout<<"Filling "<<id<<endl;
 				fill(id);
 				break;
 			}
@@ -477,8 +466,9 @@ bool compareBids(const node a, const node b){
 
 int main(int argc, char* argv[]){
 	time(&start);
+	srand(time(0));
 	readFile(argv[1]);
-	//sort(tob,tob+nob,compareBids);
+	sort(stob,stob+nob,compareBids);
 	int i,j;
 	for(i=0;i<nor;i++) {
 		reg[i].noOfBids = 0;
