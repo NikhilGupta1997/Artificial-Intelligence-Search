@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h> 
 #include <queue>
+#include <fstream>
 
 #define max 10000
 using namespace std;
@@ -93,8 +94,9 @@ void remember(){
 	vec.clear();
 	for(int i=0; i<nob; i++){
 		if(tob[i].used){
-			vec.push_back(tob[i].cid);
-			vec.push_back(100*i);
+			// vec.push_back(tob[i].bid_id);
+			// vec.push_back(100*i);
+			vec.push_back(i);
 		}
 	}
 }
@@ -115,7 +117,7 @@ void readFile(char* inputfile){
 		rp=1;
 	//tim in seconds with a margin of 3 seconds, can change later depending on how often it is being checked (how often random restart is being called)
 	tim *= 60;
-	tim -= 3;
+	tim -= 1;
 
 	tob = new node[nob];
 	stob = new node[nob];
@@ -571,10 +573,15 @@ int main(int argc, char* argv[]){
 		}
 	}
 	randomStart();
+	
 	cout<<maxVal<<endl;
+	ofstream outputFile;
+	outputFile.open("output.txt");
 	for(i=0; i<vec.size(); i++){
-		cout<<vec[i]<<" ";
+		outputFile<<tob[vec[i]].bid_id<<" ";
 	}
-	cout<<endl;
+	outputFile<<"#";
+	outputFile.close();
+	
 	return 0;
 }
