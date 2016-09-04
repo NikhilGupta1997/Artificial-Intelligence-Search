@@ -55,7 +55,7 @@ int noOfSteps;
 
 /*Probabilities multiplied by 100*/
 int rp; //restart probability: 1/b
-int wp = 7; //random walk probability: 0.15
+int wp = 1; //random walk probability: 1%
 int np; //novelty probability(choosing highest when its age is not larger: 0.5-(age(b2)/age(b1) - 1)/(score(b1)/score(b2))
 
 time_t t,start,check;
@@ -93,7 +93,7 @@ void remember(){
 	vec.clear();
 	for(int i=0; i<nob; i++){
 		if(tob[i].used){
-			vec.push_back(i);
+			vec.push_back(tob[i].cid);
 		}
 	}
 }
@@ -109,11 +109,11 @@ void readFile(char* inputfile){
 	fscanf(fid,"%d\n\n",&nob);
 	fscanf(fid,"%d\n\n",&noc);
 
-	rp = 100/nob;
+	rp = 1000/nob;
 	if(rp<1)
 		rp=1;
 	//tim in seconds with a margin of 3 seconds, can change later depending on how often it is being checked (how often random restart is being called)
-	tim *= 60;
+	tim *= 10;
 	tim -= 3;
 
 	tob = new node[nob];
@@ -181,12 +181,45 @@ void getStartState3(); // 1.11 - 1.38
 void fill(int);
 bool checkReg(int);
 
+// int not_found(std::vector<int> v, int value){
+// 	for(int i=0; i<v.size(); i++){
+// 		if(value == v[i]){
+// 			return 0;
+// 		}
+// 	}
+// 	return 1;
+// }
+
+double loss(int bidno){
+	double loss_amount = 0.0;
+	int visited[nob];
+	for(int i=0; i<nob; i++){
+		visited[i] = 0;
+	}
+	for(int i=0;i<tob[bidno].norc;i++){
+		int reg_no = tob[bidno].region[i];
+		if(reg[reg_no].used){
+			for(int j=0;j<reg[reg_no].noOfBids;j++){
+				int b_no = reg[reg_no].bid_nos[j];
+				if(tob[b_no].used && visited[b_no] == 0){
+					visited[b_no] = 1;
+					loss_amount +=tob[b_no].price;
+					break;
+				}
+			}
+		} 
+	}
+	// cout<<"Loss is "<<loss_amount<<endl;
+	return loss_amount;
+}
+
 void randomStart() //Whenever there is a random restart
 {
 	int i;
 	int p,b1,b2, b1_map, b2_map;
 	do {
-		cout<<"Random Restart"<<endl;
+		// cout<<"Random Restart"<<endl;
+		start:
 		time(&t);
 		if(t-start>=tim)
 			return;
@@ -223,7 +256,7 @@ void randomStart() //Whenever there is a random restart
 			p = rand()%100;
 			if(p<wp){
 				do{
-					cout<<"Random Walk"<<endl;
+					// cout<<"Random Walk"<<endl;
 					b1=rand()%nob;
 				}while(tob[b1].used);
 				fill(b1);
@@ -231,17 +264,31 @@ void randomStart() //Whenever there is a random restart
 			else {
 				b1 = 0;
 				b1_map = stob[b1].bid_id;
-				while(tob[b1_map].used){
+				while(tob[b1_map].used || loss(b1_map)>tob[b1_map].price || comp[tob[b1_map].cid].used){
 					b1++;
+					// cout<<" b1 = "<<b1<<endl;
+					if(b1>=nob){
+						goto start;
+					}
 					b1_map = stob[b1].bid_id;
 				}
+				// cout<<tob[b1_map].price<<"***************"<<endl;
 				b2 = b1+1;
+				if(b2 >= nob){
+					goto only_one;
+				}
 				b2_map = stob[b2].bid_id;
-				while(tob[b2_map].used){
+				while(tob[b2_map].used || loss(b2_map)>tob[b2_map].price || comp[tob[b2_map].cid].used){
 					b2++;
+					// cout<<" b2 = "<<b2<<endl;
+					if(b2>=nob){
+						goto only_one;
+					}
 					b2_map = stob[b2].bid_id;
 				}
+				// cout<<tob[b2_map].price<<"***************"<<endl;
 				if(age[b1]>age[b2]){
+					// cout<<"################### FILLING"<<endl;
 					fill(b1_map);
 				} 
 				else{
@@ -249,14 +296,18 @@ void randomStart() //Whenever there is a random restart
 					temp = 0.5 - (age[b2]*1.0/age[b1] - 1)*tob[b2_map].score/tob[b1_map].score;
 					np = temp*100;
 					if(p<np){
+						// cout<<"################### FILLING"<<endl;
+						only_one:
+						// cout<<"Moved to only_one"<<endl;
 						fill(b1_map);
 					} 
 					else{
+						// cout<<"################### FILLING"<<endl;
 						fill(b2_map);
 					}
 				}
 			}
-			p = rand()%100;
+			p = rand()%1000;
 		} while(p>=rp);
 	} while(true);
 }
