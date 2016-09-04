@@ -30,10 +30,23 @@ struct region{
 	bool used;
 };
 
+struct company{
+	int noOfBids;
+	vector<int> bid_nos;
+	bool used;
+};
+
 struct CompareReg : public std::binary_function<region, region, bool>{
    bool operator()(const region lhs, const region rhs) const
    {
       return lhs.noOfBids < rhs.noOfBids;
+   }
+};
+
+struct CompareScore : public std::binary_function<node, node, bool>{
+   bool operator()(const node lhs, const node rhs) const
+   {
+      return lhs.score < rhs.score;
    }
 };
 
@@ -52,9 +65,10 @@ int nob; // number of bids
 int noc; // number of companies
 struct node *tob; // total no. of bids
 struct region *reg;
+struct company *comp;
 int *age; //age of all bids
 
-bool *com; //keeps record of which companies and regions can be selected in the remaining unprocessed bids
+//bool *com; //keeps record of which companies and regions can be selected in the remaining unprocessed bids
 //(bid and reg not needed as bool value is incorporated into struct)
 
 double temp,currentVal=0,maxVal = 0;//max value obtained until now
@@ -95,16 +109,16 @@ void readFile(char* inputfile){
 	fscanf(fid,"%d\n\n",&nob);
 	fscanf(fid,"%d\n\n",&noc);
 
-	rp = 1/nob;
+	rp = 100/nob;
 	if(rp<1)
-		rp=0;
+		rp=1;
 	//tim in seconds with a margin of 3 seconds, can change later depending on how often it is being checked (how often random restart is being called)
 	tim *= 60;
 	tim -= 3;
 
 	tob = new node[nob];
 	age = new int[nob];
-	com = new bool[noc];
+	comp = new company[noc];
 	reg = new region[nor];
 
 	for(int i=0;i<nob;i++){
@@ -160,6 +174,8 @@ void readFile(char* inputfile){
 
 void getStartState();
 void getStartState1();
+void getStartState2();
+void getStartState3();
 void fill(int);
 bool checkReg(int);
 void randomStart() //Whenever there is a random restart
@@ -181,11 +197,11 @@ void randomStart() //Whenever there is a random restart
 			region_size.push(reg[i]);
 		}
 		for(i=0;i<noc;i++) {
-			com[i] = false;
+			comp[i].used = false;
 		}
 		noOfSteps = maxSteps;
 		currentVal = 0;
-		getStartState();
+		getStartState3();
 
 		// To see value of random start state
 		double total_price = 0.0;
@@ -237,7 +253,7 @@ void randomStart() //Whenever there is a random restart
 			}
 			srand(time(0));
 			p = rand()%100;
-		} while(check-t<30);
+		} while(p>=rp);
 	} while(true);
 }
 
@@ -260,15 +276,15 @@ void getStartState(){
 			srand(std::time(0)); 
 			rand_no = rand()%3;
 			if(rand_no == 0){
-				if(!checkReg(num1) && !com[temp.bid_nos[rand1]])
+				if(!checkReg(num1) && !comp[temp.bid_nos[rand1]].used)
 					fill(num1);
 			}
 			else if(rand_no == 1){
-				if(!checkReg(num2) && !com[temp.bid_nos[rand2]])
+				if(!checkReg(num2) && !comp[temp.bid_nos[rand2]].used)
 					fill(num2);
 			}
 			else if(rand_no == 2){
-				if(!checkReg(num3) && !com[temp.bid_nos[rand3]])
+				if(!checkReg(num3) && !comp[temp.bid_nos[rand3]].used)
 					fill(num3);
 			}
 		}
@@ -282,17 +298,139 @@ void getStartState1(){
 	num1=rand()%nob;
 	fill(num1);
 	for(i=(num1+1)%nob;i!=num1;i=(i+1)%nob){
-		if(com[tob[i].cid] || checkReg(i))
+		if(comp[tob[i].cid].used || checkReg(i))
 			continue;
 		fill(i);
 	}
+}
+
+// Helper function to get new start state
+void getStartState2(){
+	srand(time(0));
+	int num = rand()%noc;
+	int max_id=0;
+	double max_score=0.0;
+	for(int i=0; i<noc; i++){
+		int no_of_bids = comp[num].noOfBids;
+		for(int j=0; j<no_of_bids; j++){
+			if(tob[comp[num].bid_nos[j]].score>max_score){
+				max_id = comp[num].bid_nos[j];
+				max_score = tob[comp[num].bid_nos[j]].score;
+			}
+		}
+		srand(time(0));
+		int prob = rand()%100;
+		if(prob>=0){
+			if(!checkReg(max_id)){
+				fill(max_id);
+				continue;
+			}
+		}
+		srand(time(0));
+		int random_bid1 = rand()%no_of_bids;
+		srand(time(0));
+		int random_bid2 = rand()%no_of_bids;
+		srand(time(0));
+		int random_bid3 = rand()%no_of_bids;
+		int bid1 = comp[num].bid_nos[random_bid1];
+		int bid2 = comp[num].bid_nos[random_bid2];
+		int bid3 = comp[num].bid_nos[random_bid3];
+		node first, second, third;
+		if(tob[bid1].score>tob[bid2].score){
+			if(tob[bid2].score>tob[bid3].score){
+				first = tob[bid1];
+				second = tob[bid2];
+				third = tob[bid3];
+			}
+			else if(tob[bid1].score > tob[bid3].score){
+				first = tob[bid1];
+				second = tob[bid3];
+				third = tob[bid2];
+			}
+			else{
+				first = tob[bid3];
+				second = tob[bid1];
+				third = tob[bid2];
+			}
+		}
+		else{
+			if(tob[bid1].score>tob[bid3].score){
+				first = tob[bid2];
+				second = tob[bid1];
+				third = tob[bid3];
+			}
+			else if(tob[bid2].score > tob[bid3].score){
+				first = tob[bid2];
+				second = tob[bid3];
+				third = tob[bid1];
+			}
+			else{
+				first = tob[bid3];
+				second = tob[bid2];
+				third = tob[bid1];
+			}
+		}
+		if(!checkReg(first.bid_id)){
+			fill(first.bid_id);
+		}
+		else if(!checkReg(second.bid_id)){
+			fill(second.bid_id);
+		}
+		else if(!checkReg(third.bid_id)){
+			fill(third.bid_id);
+		}
+		num = (num+1)%noc;
+	}
+}
+
+int not_zero(int arr[], int size){
+	for(int i=0; i<size; i++){
+		if (arr[i] == 1)
+			return 1;
+	}
+	return 0;
+}
+
+void getStartState3(){
+	priority_queue<node,vector<node>, CompareScore > company_scores[max];
+	for(int j=0; j<nob; j++){
+		int co = tob[j].cid;
+		company_scores[co].push(tob[j]);
+		cout<<"Pushing"<<endl;
+	}
+	srand(time(0));
+	int num = rand()%noc;
+	int count[noc];
+	for(int i=0; i<noc; i++){
+		count[i] = 1;
+	}
+	while(not_zero(count, noc)){
+		count[num]=0;
+		while(!company_scores[num].empty()){
+			cout<<"inside "<<num<<endl;
+			node temp = company_scores[num].top();
+			company_scores[num].pop();
+			int id = temp.bid_id;
+			cout<<id<<endl;
+			int p = rand()%1000;
+			if(p>900)
+				continue;
+			if(!checkReg(id)){
+				cout<<"Filling "<<id<<endl;
+				fill(id);
+				break;
+			}
+		}
+		num = (num+1)%noc;
+		//num = rand()%noc;
+	}	
 }
 
 //helper function of randomStart function
 void fill(int bidno){	
 	noOfSteps--;
 	age[bidno] = noOfSteps;
-	com[tob[bidno].cid]=true;
+	comp[tob[bidno].cid].used=true;
 	int i,j;
 	int reg_no,b_no;
 	for(i=0;i<tob[bidno].norc;i++){
@@ -302,7 +440,7 @@ void fill(int bidno){
 				b_no = reg[reg_no].bid_nos[j];
 				if(tob[b_no].used){
 					tob[b_no].used = false;
-					com[tob[b_no].cid] = false;
+					comp[tob[b_no].cid].used = false;
 					for(int k=0; k<tob[b_no].norc; k++){
 						reg[tob[b_no].region[k]].used = false;
 					}
@@ -340,16 +478,22 @@ bool compareBids(const node a, const node b){
 int main(int argc, char* argv[]){
 	time(&start);
 	readFile(argv[1]);
-	sort(tob,tob+nob,compareBids);
+	//sort(tob,tob+nob,compareBids);
 	int i,j;
 	for(i=0;i<nor;i++) {
 		reg[i].noOfBids = 0;
+	}
+	for(i=0; i<noc; i++){
+		comp[i].noOfBids = 0;
 	}
 	for(i=0;i<nob;i++) {
 		for(j=0;j<tob[i].norc;j++) {
 			reg[tob[i].region[j]].bid_nos.push_back(i);
 			reg[tob[i].region[j]].noOfBids++;
 			reg[tob[i].region[j]].used = false;
+			comp[tob[i].cid].bid_nos.push_back(i);
+			comp[tob[i].cid].noOfBids++;
+			comp[tob[i].cid].used = false;
 		}
 	}
 	randomStart();
