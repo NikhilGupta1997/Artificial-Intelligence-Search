@@ -94,6 +94,7 @@ void remember(){
 	for(int i=0; i<nob; i++){
 		if(tob[i].used){
 			vec.push_back(tob[i].cid);
+			vec.push_back(100*i);
 		}
 	}
 }
@@ -113,7 +114,7 @@ void readFile(char* inputfile){
 	if(rp<1)
 		rp=1;
 	//tim in seconds with a margin of 3 seconds, can change later depending on how often it is being checked (how often random restart is being called)
-	tim *= 10;
+	tim *= 60;
 	tim -= 3;
 
 	tob = new node[nob];
@@ -213,12 +214,40 @@ double loss(int bidno){
 	return loss_amount;
 }
 
+void remove(int comid){
+	int index, i;
+	for(i=0; i<nob; i++){
+		if(tob[i].cid == comid){
+			if(tob[i].used){
+				index = i;
+				break;
+			}
+		}
+	}
+	if (i<nob){
+		currentVal-=tob[index].price;
+		tob[index].used=false;
+		comp[tob[index].cid].used = false;
+		for(int i=0; i<tob[index].norc; i++){
+			int reg_no = tob[index].region[i];
+			reg[reg_no].used=false;
+		}
+	}
+}
+
 void randomStart() //Whenever there is a random restart
 {
 	int i;
 	int p,b1,b2, b1_map, b2_map;
 	do {
 		// cout<<"Random Restart"<<endl;
+		// remember();
+
+		// for(i=0; i<vec.size(); i++){
+		// 	cout<<vec[i]<<" ";
+		// }
+		// cout<<endl;
+
 		start:
 		time(&t);
 		if(t-start>=tim)
@@ -239,14 +268,14 @@ void randomStart() //Whenever there is a random restart
 		currentVal = 0;
 		getStartState3();
 
-		// To see value of random start state
-		double total_price = 0.0;
-		for(int i=0; i<nob; i++){
-			if(tob[i].used==true){
-				total_price += tob[i].price;
-			}
-		}
-		cout<<total_price<<endl;
+		// // To see value of random start state
+		// double total_price = 0.0;
+		// for(int i=0; i<nob; i++){
+		// 	if(tob[i].used==true){
+		// 		total_price += tob[i].price;
+		// 	}
+		// }
+		// cout<<total_price<<endl;
 		
 		// Hill Climbing
 		do{
@@ -259,6 +288,7 @@ void randomStart() //Whenever there is a random restart
 					// cout<<"Random Walk"<<endl;
 					b1=rand()%nob;
 				}while(tob[b1].used);
+				remove(tob[b1].cid);
 				fill(b1);
 			} 
 			else {
@@ -289,6 +319,7 @@ void randomStart() //Whenever there is a random restart
 				// cout<<tob[b2_map].price<<"***************"<<endl;
 				if(age[b1]>age[b2]){
 					// cout<<"################### FILLING"<<endl;
+					//remove(tob[b1_map].cid);
 					fill(b1_map);
 				} 
 				else{
@@ -299,10 +330,12 @@ void randomStart() //Whenever there is a random restart
 						// cout<<"################### FILLING"<<endl;
 						only_one:
 						// cout<<"Moved to only_one"<<endl;
+						//remove(tob[b1_map].cid);
 						fill(b1_map);
 					} 
 					else{
 						// cout<<"################### FILLING"<<endl;
+						//remove(tob[b2_map].cid);
 						fill(b2_map);
 					}
 				}
