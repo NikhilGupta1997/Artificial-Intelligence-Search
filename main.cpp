@@ -23,6 +23,7 @@ struct node{ // bid node structure
 	int *region;
 	double score;
 	bool used;
+	vector<int> conflicting_bids;
 };
 
 struct region{
@@ -51,12 +52,12 @@ struct CompareScore : public std::binary_function<node, node, bool>{
    }
 };
 
-int maxSteps = 50; //may vary for different inputs
+int maxSteps = 500; //may vary for different inputs
 int noOfSteps;
 
 /*Probabilities multiplied by 100*/
 int rp; //restart probability: 1/b
-int wp = 1; //random walk probability: 1%
+int wp = 10; //random walk probability: 1%
 int np; //novelty probability(choosing highest when its age is not larger: 0.5-(age(b2)/age(b1) - 1)/(score(b1)/score(b2))
 
 time_t t,start,check;
@@ -193,26 +194,38 @@ bool checkReg(int);
 // 	return 1;
 // }
 
-double loss(int bidno){
+// double loss(int bidno){
+// 	double loss_amount = 0.0;
+// 	int visited[nob];
+// 	for(int i=0; i<nob; i++){
+// 		visited[i] = 0;
+// 	}
+// 	for(int i=0;i<tob[bidno].norc;i++){
+// 		int reg_no = tob[bidno].region[i];
+// 		if(reg[reg_no].used){
+// 			for(int j=0;j<reg[reg_no].noOfBids;j++){
+// 				int b_no = reg[reg_no].bid_nos[j];
+// 				if(tob[b_no].used && visited[b_no] == 0){
+// 					visited[b_no] = 1;
+// 					loss_amount +=tob[b_no].price;
+// 					break;
+// 				}
+// 			}
+// 		} 
+// 	}
+// 	// cout<<"Loss is "<<loss_amount<<endl;
+// 	return loss_amount;
+// }
+
+double loss(int bidno) {
 	double loss_amount = 0.0;
-	int visited[nob];
-	for(int i=0; i<nob; i++){
-		visited[i] = 0;
+	int size = tob[bidno].conflicting_bids.size();
+	int i,b_temp;
+	for(i=0;i<size;i++) {
+		b_temp = tob[bidno].conflicting_bids[i];
+		if(tob[b_temp].used)
+			loss_amount += tob[b_temp].price;
 	}
-	for(int i=0;i<tob[bidno].norc;i++){
-		int reg_no = tob[bidno].region[i];
-		if(reg[reg_no].used){
-			for(int j=0;j<reg[reg_no].noOfBids;j++){
-				int b_no = reg[reg_no].bid_nos[j];
-				if(tob[b_no].used && visited[b_no] == 0){
-					visited[b_no] = 1;
-					loss_amount +=tob[b_no].price;
-					break;
-				}
-			}
-		} 
-	}
-	// cout<<"Loss is "<<loss_amount<<endl;
 	return loss_amount;
 }
 
@@ -229,18 +242,22 @@ void remove(int comid){
 	if (i<nob){
 		currentVal-=tob[index].price;
 		tob[index].used=false;
+		int reg_no;
 		comp[tob[index].cid].used = false;
 		for(int i=0; i<tob[index].norc; i++){
-			int reg_no = tob[index].region[i];
+			reg_no = tob[index].region[i];
 			reg[reg_no].used=false;
 		}
 	}
 }
 
+
+
 void randomStart() //Whenever there is a random restart
 {
 	int i;
 	int p,b1,b2, b1_map, b2_map;
+	bool srand_call = false;
 	do {
 		// cout<<"Random Restart"<<endl;
 		// remember();
@@ -250,10 +267,18 @@ void randomStart() //Whenever there is a random restart
 		// }
 		// cout<<endl;
 
+
+
 		start:
 		time(&t);
 		if(t-start>=tim)
 			return;
+		if(((t - start) % 20 == 0)&&!srand_call) {
+			srand_call = true;
+			srand(time(0));
+		} else {
+			srand_call = false;
+		}
 
 		for(i=0;i<nob;i++) {
 			age[i] = maxSteps;
@@ -283,7 +308,10 @@ void randomStart() //Whenever there is a random restart
 		do{
 			time(&check);
 			if(check-start>=tim)
-			return;
+				return;
+
+			// cout<<maxVal<<" "<<noOfSteps<<endl;
+
 			p = rand()%100;
 			if(p<wp){
 				do{
@@ -463,12 +491,12 @@ void getStartState2(){
 	}
 }
 
-int not_zero(int arr[], int size){
-	for(int i=0; i<size; i++){
-		if (arr[i] == 1)
-			return 1;
+bool not_zero(bool arr[]){
+	for(int i=0; i<noc; i++){
+		if (arr[i])
+			return true;
 	}
-	return 0;
+	return false;
 }
 
 void getStartState3(){
@@ -478,12 +506,12 @@ void getStartState3(){
 		company_scores[co].push(tob[j]);
 	}
 	int num = rand()%noc;
-	int count[noc];
+	bool count[noc];
 	for(int i=0; i<noc; i++){
-		count[i] = 1;
+		count[i] = true;
 	}
-	while(not_zero(count, noc)){
-		count[num]=0;
+	while(not_zero(count)){
+		count[num]=false;
 		while(!company_scores[num].empty()){
 			node temp = company_scores[num].top();
 			company_scores[num].pop();
@@ -502,33 +530,74 @@ void getStartState3(){
 }
 
 //helper function of randomStart function
+// void fill(int bidno){	
+// 	noOfSteps--;
+// 	age[bidno] = noOfSteps;
+// 	comp[tob[bidno].cid].used=true;
+// 	int i,j;
+// 	int reg_no,b_no;
+// 	for(i=0;i<tob[bidno].norc;i++){
+// 		reg_no = tob[bidno].region[i];
+// 		if(reg[reg_no].used){
+// 			for(j=0;j<reg[reg_no].noOfBids;j++){
+// 				b_no = reg[reg_no].bid_nos[j];
+// 				if(tob[b_no].used){
+// 					tob[b_no].used = false;
+// 					comp[tob[b_no].cid].used = false;
+// 					for(int k=0; k<tob[b_no].norc; k++){
+// 						reg[tob[b_no].region[k]].used = false;
+// 					}
+// 					reg[reg_no].used = true;
+// 					currentVal -= tob[b_no].price;
+// 					break;
+// 				}
+// 			}
+// 		} 
+// 		else {
+// 			reg[reg_no].used = true;
+// 		}
+// 	}
+// 	currentVal += tob[bidno].price;
+// 	tob[bidno].used=true;
+// 	if(currentVal>maxVal){
+// 		maxVal = currentVal;
+// 		remember();
+// 	}
+// }
+
 void fill(int bidno){	
 	noOfSteps--;
 	age[bidno] = noOfSteps;
-	comp[tob[bidno].cid].used=true;
+	// if(comp[tob[bidno].cid].used)
+	// 	remove(tob[bidno].cid);
+	// else
+		comp[tob[bidno].cid].used=true;
 	int i,j;
 	int reg_no,b_no;
-	for(i=0;i<tob[bidno].norc;i++){
-		reg_no = tob[bidno].region[i];
-		if(reg[reg_no].used){
-			for(j=0;j<reg[reg_no].noOfBids;j++){
-				b_no = reg[reg_no].bid_nos[j];
-				if(tob[b_no].used){
-					tob[b_no].used = false;
-					comp[tob[b_no].cid].used = false;
-					for(int k=0; k<tob[b_no].norc; k++){
-						reg[tob[b_no].region[k]].used = false;
-					}
-					reg[reg_no].used = true;
-					currentVal -= tob[b_no].price;
-					break;
-				}
+	int size = tob[bidno].conflicting_bids.size();
+	// cout<<"size"<<size<<endl;
+	for(i=0;i<size;i++) {
+		b_no = tob[bidno].conflicting_bids[i];
+		if(tob[b_no].used) {
+			tob[b_no].used = false;
+			comp[tob[b_no].cid].used = false;
+			for(int k=0; k<tob[b_no].norc; k++){
+				reg[tob[b_no].region[k]].used = false;
 			}
-		} 
-		else {
-			reg[reg_no].used = true;
+			currentVal -= tob[b_no].price;
+		} else {
+			// cout<<"false"<<i<<endl;
 		}
 	}
+	// cout<<""
+	for(i=0;i<tob[bidno].norc;i++){
+			reg_no = tob[bidno].region[i];
+			reg[reg_no].used = true;
+			// cout<<i<<endl;
+		
+	}
+
+	// cout<<"exit loop"<<endl;
 	currentVal += tob[bidno].price;
 	tob[bidno].used=true;
 	if(currentVal>maxVal){
@@ -550,9 +619,20 @@ bool compareBids(const node a, const node b){
 	return a.score > b.score;
 }
 
+bool anyCommonRegion(int a, int b) {
+	int i,j;
+	for(i=0;i<tob[a].norc;i++) {
+		for(j=0;j<tob[b].norc;j++) {
+			if(tob[a].region[i]==tob[b].region[j])
+				return true;
+		}
+	}
+	return false;
+}
+
 int main(int argc, char* argv[]){
 	time(&start);
-	srand(time(0));
+	
 	readFile(argv[1]);
 	sort(stob,stob+nob,compareBids);
 	int i,j;
@@ -571,12 +651,22 @@ int main(int argc, char* argv[]){
 			comp[tob[i].cid].noOfBids++;
 			comp[tob[i].cid].used = false;
 		}
+		for(j=i+1;j<nob;j++) {
+			if(tob[j].cid==tob[i].cid) {
+				tob[i].conflicting_bids.push_back(j);
+				tob[j].conflicting_bids.push_back(i);
+				continue;
+			} else if (anyCommonRegion(i,j)) {
+				tob[i].conflicting_bids.push_back(j);
+				tob[j].conflicting_bids.push_back(i);
+			}
+		}
 	}
 	randomStart();
 	
 	cout<<maxVal<<endl;
 	ofstream outputFile;
-	outputFile.open("output.txt");
+	outputFile.open(argv[2]);
 	for(i=0; i<vec.size(); i++){
 		outputFile<<tob[vec[i]].bid_id<<" ";
 	}
