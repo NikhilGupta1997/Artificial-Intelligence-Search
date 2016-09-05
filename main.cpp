@@ -345,7 +345,6 @@ void fill(int bidno){
 	if(currentVal>maxVal){
 		maxVal = currentVal;
 		remember();
-		cout<<"OPTIMAL "<<time(&t)<<endl;
 	}
 }
 
