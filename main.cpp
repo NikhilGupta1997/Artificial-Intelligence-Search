@@ -196,7 +196,7 @@ void randomStart() //Whenever there is a random restart
 	int p,b1,b2, b1_map, b2_map;
 	bool srand_call = false;
 	do {
-		start:
+		
 		time(&t);
 		if(t-start>=tim)
 			return;
@@ -229,6 +229,7 @@ void randomStart() //Whenever there is a random restart
 
 			p = rand()%100;
 			if(p<wp){
+				start:
 				do{
 					b1=rand()%nob;
 				}while(tob[b1].used);
@@ -241,6 +242,7 @@ void randomStart() //Whenever there is a random restart
 				while(tob[b1_map].used || loss(b1_map)>tob[b1_map].price || comp[tob[b1_map].cid].used){
 					b1++;
 					if(b1>=nob){
+						p = 0;
 						goto start;
 					}
 					b1_map = stob[b1].bid_id;
@@ -343,6 +345,7 @@ void fill(int bidno){
 	if(currentVal>maxVal){
 		maxVal = currentVal;
 		remember();
+		cout<<"OPTIMAL "<<time(&t)<<endl;
 	}
 }
 
