@@ -50,7 +50,7 @@ int noOfSteps;
 
 /*Probabilities multiplied by 100*/
 int rp; //restart probability: 1/b
-int wp = 10; //random walk probability: 10%
+int wp = 5; //random walk probability: 10%
 int np; //novelty probability(choosing highest when its age is not larger: 0.5-(age(b2)/age(b1) - 1)/(score(b1)/score(b2))
 
 time_t t,start,check;
